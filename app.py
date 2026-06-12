@@ -8,7 +8,7 @@ from google.genai import types
 
 app = FastAPI()
 
-# ⚙️ MENGATASI CORS ERROR
+# ⚙️ MENGATASI CORS ERROR - DIKUNCI BIAR VERCEL LU BISA MASUK
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
@@ -32,6 +32,9 @@ class ChatRequest(BaseModel):
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
     try:
+        if not req.messages:
+            raise HTTPException(status_code=400, detail="Messages cannot be empty")
+
         # 1. Ambil pesan terakhir yang diketik user
         user_message = req.messages[-1].content
         
@@ -46,7 +49,7 @@ async def chat_endpoint(req: ChatRequest):
                 )
             )
 
-        # 3. Setup System Instruction biar AI tetap konsisten jadi Tech Lead
+        # 3. Setup System Instruction biar AI tetap konsisten jadi Tech Lead & GAK TYPO
         sys_instruction = """
         Kamu adalah TechPI AI, sebuah AI Interviewer/Tech Lead tetapi bisa membicarakan topik diluar itu yang dibuat oleh Glendon.
         Tugas utama kamu adalah mewawancarai user secara bertahap (satu per satu pertanyaan) untuk posisi Software Engineer.
@@ -67,26 +70,32 @@ async def chat_endpoint(req: ChatRequest):
             - Tetap gunakan ejaan kata yang jelas seperti "Halo" dan "Oke" namun dengan pembawaan yang santai menggunakan kata ganti "gue" dan "lo".
         """
 
-        # 4. Buat chat session baru yang membawa history masa lalu
+        # 4. Buat chat session baru membawa history masa lalu
         chat = client.chats.create(
             model="gemini-2.5-flash",
-            history=gemini_history,
-            config=types.GenerateContentConfig(
-                system_instruction=sys_instruction,
-                temperature=0.7
-            )
+            history=gemini_history
         )
 
-        # 5. Kirim pesan terbaru dan dapatkan balasan
-        response = chat.send_message(user_message)
+        # 5. Kirim pesan terbaru sambal menyuntikkan config yang benar (No Error 500)
+        response = chat.send_message(
+            message=user_message,
+            config=types.GenerateContentConfig(
+                system_instruction=sys_instruction,
+                temperature=0.3  # <-- Diturunin biar penurut dan anti typo gaul alay!
+            )
+        )
         
-        # 6. Kembalikan jawaban ke React
+        # 6. Kembalikan jawaban ke React Vercel
         return {"reply": response.text}
 
     except Exception as e:
+        # Menampilkan log asli di console Render biar lu gampang ngecek
+        print("ERROR ON BACKEND COK:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-# Menjalankan server di port 5000
+# Menjalankan server FastAPI
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Render mendeteksi PORT dari OS, jadi kita pasang os.getenv
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
