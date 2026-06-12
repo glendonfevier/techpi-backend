@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -17,7 +18,8 @@ app.add_middleware(
 )
 
 # Inisialisasi Google GenAI Client
-client = genai.Client()
+api_key = os.getenv("AQ.Ab8RN6L2EojWCzSZu2eJepmDI6m58cXLWpUFCqs945o9XUOjvA")
+client = genai.Client(api_key=api_key)
 
 # Struktur data yang dikirim oleh React
 class MessageModel(BaseModel):
