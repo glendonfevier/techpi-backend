@@ -18,7 +18,7 @@ app.add_middleware(
 )
 
 # Inisialisasi Google GenAI Client
-api_key = os.getenv("AQ.Ab8RN6L2EojWCzSZu2eJepmDI6m58cXLWpUFCqs945o9XUOjvA")
+api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
 # Struktur data yang dikirim oleh React
