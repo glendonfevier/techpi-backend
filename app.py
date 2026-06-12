@@ -41,6 +41,7 @@ async def chat_endpoint(req: ChatRequest):
         # 2. Susun ulang history percakapan sebelumnya untuk dikirim ke Gemini
         gemini_history = []
         for msg in req.messages[:-1]:
+            # Menyesuaikan role dari React ('assistant'/'model') ke format SDK Gemini
             gemini_role = "user" if msg.role == "user" else "model"
             gemini_history.append(
                 types.Content(
@@ -70,22 +71,28 @@ async def chat_endpoint(req: ChatRequest):
             - Tetap gunakan ejaan kata yang jelas seperti "Halo" dan "Oke" namun dengan pembawaan yang santai menggunakan kata ganti "gue" dan "lo".
         """
 
-        # 4. Buat chat session baru membawa history masa lalu
-        chat = client.chats.create(
-            model="gemini-2.5-flash",
-            history=gemini_history
-        )
+        # 4. FIX UTAMA: Pisahkan pembuatan chat session berdasarkan ada/tidaknya history
+        if gemini_history:
+            chat = client.chats.create(
+                model="gemini-2.5-flash",
+                history=gemini_history
+            )
+        else:
+            # Kalau chat pertama kali (history kosong), buat chat kosong tanpa membawa parameter history
+            chat = client.chats.create(
+                model="gemini-2.5-flash"
+            )
 
-        # 5. Kirim pesan terbaru sambal menyuntikkan config yang benar (No Error 500)
+        # 5. Kirim pesan terbaru sambal menyuntikkan config yang benar
         response = chat.send_message(
             message=user_message,
             config=types.GenerateContentConfig(
                 system_instruction=sys_instruction,
-                temperature=0.3  # <-- Diturunin biar penurut dan anti typo gaul alay!
+                temperature=0.3  # <-- Biar anteng dan anti typo alay
             )
         )
         
-        # 6. Kembalikan jawaban ke React Vercel
+        # 6. Kembalikan jawaban ke React Vercel dengan key "reply"
         return {"reply": response.text}
 
     except Exception as e:
@@ -96,6 +103,5 @@ async def chat_endpoint(req: ChatRequest):
 # Menjalankan server FastAPI
 if __name__ == "__main__":
     import uvicorn
-    # Render mendeteksi PORT dari OS, jadi kita pasang os.getenv
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
