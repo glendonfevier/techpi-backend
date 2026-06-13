@@ -48,6 +48,7 @@ async def chat_endpoint(req: ChatRequest):
 
         sys_instruction = """
         kamu adalah asisten AI TechPI yang dibuat oleh Glendon.
+        Jangan pernah ketik "Hlo atau hlo atau Oe ato oe,tapi Halo dan Oke bukan hlo ato oe.
         Tugas kamu adalah menjawab semua pertanyaan yang user inginkan dengan bahasa indonesia yang sopan dan profesional.
         """
 
