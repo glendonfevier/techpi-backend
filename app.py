@@ -8,6 +8,7 @@ from google.genai import types
 
 app = FastAPI()
 
+# Setup CORS biar React Vercel bisa akses tanpa diblokir
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
@@ -16,8 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Inisialisasi Google GenAI Client
 api_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
+
+# ==================== SCHEMA / MODEL DATA ====================
 
 class MessageModel(BaseModel):
     role: str
@@ -25,6 +29,13 @@ class MessageModel(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: List[MessageModel]
+
+class ATSRequest(BaseModel):
+    job_description: str
+    resume_text: str
+
+
+# ==================== ENDPOINT 1: MOCK INTERVIEW CHAT ====================
 
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
@@ -34,10 +45,9 @@ async def chat_endpoint(req: ChatRequest):
 
         user_message = req.messages[-1].content
         
-        # Amankan parsing history
+        # Parsing history chat agar aman untuk SDK Gemini terbaru
         gemini_history = []
         for msg in req.messages[:-1]:
-            # Kita amankan: jika role dari react adalah 'user', pakai 'user', selain itu wajib 'model'
             gemini_role = "user" if msg.role == "user" else "model"
             gemini_history.append(
                 types.Content(
@@ -46,13 +56,25 @@ async def chat_endpoint(req: ChatRequest):
                 )
             )
 
+        # Instruksi sistem yang disesuaikan biar dapet vibe Tech Lead startup modern
         sys_instruction = """
-        kamu adalah asisten AI TechPI yang dibuat oleh Glendon.
-        Jangan pernah ketik "Hlo atau hlo atau Oe ato oe,tapi Halo dan Oke bukan hlo ato oe.
-        Tugas kamu adalah menjawab semua pertanyaan yang user inginkan dengan bahasa indonesia yang sopan dan profesional.
+        Kamu adalah AceCVS AI, sebuah AI Career Assistant & Tech Lead modern yang dibuat oleh Glendon.
+        Aplikasi AceCVS AI ini memiliki dua fitur utama: "Mock Interview" dan "ATS Resume Fixer".
+
+        ATURAN MERESPONS USER:
+        1. Jika user menyapa atau ingin melakukan Simulasi Interview:
+           - Berperanlah sebagai Tech Lead startup yang asyik (pake gue/lo).
+           - Mulai dengan perkenalan yang keren, dan tunggu sampai user bilang "Siap" atau "Mulai" baru berikan Pertanyaan Pertama.
+           - Berikan interview secara bertahap (satu per satu pertanyaan, kasih nilai skala 1-10 setiap user menjawab).
+
+        2. Jika user bertanya tentang CV, LinkedIn, ATS, atau tips karier umum:
+           - Jawablah sebagai HR Director / Career Mentor yang solutif dan membantu.
+           - Berikan tips-tips taktis agar CV mereka menarik dan mudah lolos screening perusahaan.
+
+        Gaya bahasa wajib menggunakan bahasa Indonesia yang santai layaknya di startup modern, sopan, dan solutif.
+        Jangan pernah ketik "Hlo" atau "Oe", ketiklah "Halo" dan "Oke" dengan bener ya!
         """
 
-        # BENTENG UTAMA ANTI EROR 500:
         if gemini_history:
             chat = client.chats.create(
                 model="gemini-2.5-flash",
@@ -67,7 +89,7 @@ async def chat_endpoint(req: ChatRequest):
             message=user_message,
             config=types.GenerateContentConfig(
                 system_instruction=sys_instruction,
-                temperature=0.1
+                temperature=0.3
             )
         )
         
@@ -76,6 +98,55 @@ async def chat_endpoint(req: ChatRequest):
     except Exception as e:
         print("ERROR ON BACKEND COK:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== ENDPOINT 2: ATS RESUME FIXER ====================
+
+@app.post("/optimize-ats")
+async def optimize_ats_endpoint(req: ATSRequest):
+    try:
+        if not req.job_description or not req.resume_text:
+            raise HTTPException(status_code=400, detail="Job description and Resume text cannot be empty")
+
+        ats_prompt = f"""
+        Kamu adalah seorang Professional Resume Writer dan HR Director senior. Tugas kamu adalah mengoptimalkan CV/Resume user agar lolos dari sistem penyaringan otomatis ATS (Applicant Tracking System) berdasarkan Lowongan Kerja (Job Description) yang dituju.
+
+        LOWONGAN KERJA (JOB DESCRIPTION):
+        \"\"\"{req.job_description}\"\"\"
+
+        CV / RESUME USER SAAT INI:
+        \"\"\"{req.resume_text}\"\"\"
+
+        Analisislah kedua teks di atas, lalu berikan output dalam format Markdown yang rapi dengan struktur berikut:
+
+        ### 🎯 1. ATS Match Score & Analisis Singkat
+        Berikan prediksi skor kelulusan ATS dari skala 0-100% berdasarkan CV saat ini. Jelaskan secara singkat kata kunci (keywords) apa saja yang kurang atau hilang di CV user.
+
+        ### 📝 2. Hasil Optimasi "Professional Summary"
+        Tuliskan ulang bagian ringkasan profil (Summary) CV user agar terlihat sangat relevan dengan lowongan kerja di atas. Gunakan bahasa Inggris (atau sesuaikan dengan bahasa lowongan kerja tersebut). Buat agar kuat, profesional, dan kaya akan kata kunci ATS.
+
+        ### 💼 3. Tips Penyesuaian Pengalaman Kerja (Job Experience)
+        Berikan 3-4 poin bullet points berisi rekomendasi aksi nyata atau kalimat pencapaian (achievement) yang wajib user masukkan ke dalam deskripsi pengalaman kerja mereka agar auto-lolos screening.
+
+        Berikan respons dengan gaya bicara yang suportif, solutif, dan profesional, tapi tetap santai (pake gue/lo jika memberikan pengantar singkat).
+        """
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=ats_prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.4
+            )
+        )
+        
+        return {"result": response.text}
+
+    except Exception as e:
+        print("ERROR ON ATS COK:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== RUN SERVER (WAJIB PALING BAWAH) ====================
 
 if __name__ == "__main__":
     import uvicorn
