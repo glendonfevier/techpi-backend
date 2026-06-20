@@ -11,7 +11,7 @@ app = FastAPI()
 # Setup CORS biar React Vercel bisa akses tanpa diblokir
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,7 +44,7 @@ async def chat_endpoint(req: ChatRequest):
             raise HTTPException(status_code=400, detail="Messages cannot be empty")
 
         user_message = req.messages[-1].content
-        
+
         # Parsing history chat agar aman untuk SDK Gemini terbaru
         gemini_history = []
         for msg in req.messages[:-1]:
@@ -56,16 +56,17 @@ async def chat_endpoint(req: ChatRequest):
                 )
             )
 
-        # Instruksi sistem yang disesuaikan biar dapet vibe Tech Lead startup modern
+        # Instruksi sistem — identitas Hireloop
         sys_instruction = """
-        Kamu adalah AceCVS AI, sebuah AI Career Assistant & Tech Lead modern yang dibuat oleh Glendon.
-        Aplikasi AceCVS AI ini memiliki dua fitur utama: "Mock Interview" dan "ATS Resume Fixer".
+        Kamu adalah Hireloop AI, sebuah AI Career Assistant & Tech Lead modern yang dibuat oleh Glendon.
+        Aplikasi Hireloop ini memiliki dua fitur utama: "Mock Interview" dan "ATS Resume Fixer".
 
         ATURAN MERESPONS USER:
         1. Jika user menyapa atau ingin melakukan Simulasi Interview:
            - Berperanlah sebagai Tech Lead startup yang asyik (pake gue/lo).
            - Mulai dengan perkenalan yang keren, dan tunggu sampai user bilang "Siap" atau "Mulai" baru berikan Pertanyaan Pertama.
            - Berikan interview secara bertahap (satu per satu pertanyaan, kasih nilai skala 1-10 setiap user menjawab).
+           - Setiap kali kamu memberi nilai, SELALU tulis dalam format persis: "Skor: X/10" di baris tersendiri, supaya bisa dideteksi sistem.
 
         2. Jika user bertanya tentang CV, LinkedIn, ATS, atau tips karier umum:
            - Jawablah sebagai HR Director / Career Mentor yang solutif dan membantu.
@@ -92,7 +93,7 @@ async def chat_endpoint(req: ChatRequest):
                 temperature=0.3
             )
         )
-        
+
         return {"reply": response.text}
 
     except Exception as e:
@@ -120,7 +121,7 @@ async def optimize_ats_endpoint(req: ATSRequest):
         Analisislah kedua teks di atas, lalu berikan output dalam format Markdown yang rapi dengan struktur berikut:
 
         ### 🎯 1. ATS Match Score & Analisis Singkat
-        Berikan prediksi skor kelulusan ATS dari skala 0-100% berdasarkan CV saat ini. Jelaskan secara singkat kata kunci (keywords) apa saja yang kurang atau hilang di CV user.
+        Berikan prediksi skor kelulusan ATS dari skala 0-100% berdasarkan CV saat ini (tulis dalam format persis "Skor ATS: X%" di baris pertama agar bisa dideteksi sistem). Jelaskan secara singkat kata kunci (keywords) apa saja yang kurang atau hilang di CV user.
 
         ### 📝 2. Hasil Optimasi "Professional Summary"
         Tuliskan ulang bagian ringkasan profil (Summary) CV user agar terlihat sangat relevan dengan lowongan kerja di atas. Gunakan bahasa Inggris (atau sesuaikan dengan bahasa lowongan kerja tersebut). Buat agar kuat, profesional, dan kaya akan kata kunci ATS.
@@ -138,7 +139,7 @@ async def optimize_ats_endpoint(req: ATSRequest):
                 temperature=0.4
             )
         )
-        
+
         return {"result": response.text}
 
     except Exception as e:
